@@ -5,7 +5,7 @@ __pycache__/
 
 # C extensions
 *.so
-
+models/*
 # Distribution / packaging
 .Python
 build/
@@ -67,6 +67,8 @@ instance/
 
 # Scrapy stuff:
 .scrapy
+
+algo_prof/
 
 # Sphinx documentation
 docs/_build/
