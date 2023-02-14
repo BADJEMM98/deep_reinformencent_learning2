@@ -1,25 +1,26 @@
-from board import Board
 from player import Player
 import numpy as np
 from random import choice, choices
+from deep_single_agent_env import DeepSingleAgentEnv
+import tensorflow as tf
 
-class OthelloGame():
-
-    def __init__(self, wht_player_mark:int=1, blk_player_mark:int=2,size:int=8):
-        self.board_size = size
+class OthelloEnv(DeepSingleAgentEnv):
+    def __init__(self,wht_player_mark=1,blk_player_mark=2):
+        self.board_size = 8
         self.whtplayer = Player(wht_player_mark)
         self.blkplayer = Player(blk_player_mark,is_current=True)
-        self.board = np.zeros(self.board_size,self.board_size)
-        self.board[self.board_size/2-1,self.board_size/2-1] = wht_player_mark
-        self.board[self.board_size/2,self.board_size/2] = wht_player_mark
-        self.board[self.board_size/2-1,self.board_size/2] = blk_player_mark
-        self.board[self.board_size/2,self.board_size/2-1] = blk_player_mark
+        self.board = np.zeros((self.board_size,self.board_size))
+        self.board[self.board_size//2-1,self.board_size//2-1] = wht_player_mark
+        self.board[self.board_size//2,self.board_size//2] = wht_player_mark
+        self.board[self.board_size//2-1,self.board_size//2] = blk_player_mark
+        self.board[self.board_size//2,self.board_size//2-1] = blk_player_mark
         self.move_directions = [(-1, -1), (-1, 0), (-1, +1),
                                 (0, -1),           (0, +1),
                                 (+1, -1), (+1, 0), (+1, +1)]
-        self.is_game_over = False
         self.current_player_mark = self.blkplayer.mark
-    
+        self.current_score = 0
+        self.id = 0
+
     def switch_player(self):
         if self.whtplayer.mark == self.current_player_mark:
             self.current_player_mark = self.blkplayer.mark
@@ -37,8 +38,8 @@ class OthelloGame():
             self.blkplayer.score -= 1
         else:
             self.whtplayer.score -= 1
-    
-    def player_move(self,move:list[int]):
+
+    def apply_move(self,move:list[int]):
         
         if self.is_legal_move(move):
             self.board[move[0]][move[1]] = self.current_player_mark
@@ -97,14 +98,13 @@ class OthelloGame():
                   defined in MOVE_DIRS).
         '''
         i = 1
-        adversary_mark = 1 if self.current_player_mark == 2 else 2
         if self.is_valid_coord(move[0], move[1]):
             while True:
                 row = move[0] + direction[0] * i
                 col = move[1] + direction[1] * i
                 if not self.is_valid_coord(row, col) or self.board[row][col] == 0:
                     return False
-                elif self.board[row][col] == adversary_mark:
+                elif self.board[row][col] == self.current_player_mark:
                     break
                 else:
                     i += 1
@@ -125,7 +125,7 @@ class OthelloGame():
                     moves.append(move)
         return moves
 
-    def make_random_move(self):
+    def get_random_move(self):
         ''' Method: make_random_move
             Parameters: self
             Returns: nothing
@@ -160,4 +160,132 @@ class OthelloGame():
                         self.increase_curr_player_score()
                         self.decrease_adversary_score()
                         i += 1
+    def reset(self):
+        self.whtplayer = Player(self.whtplayer.mark)
+        self.blkplayer = Player(self.blkplayer.mark)
+        self.board = np.zeros((self.board_size,self.board_size))
+        self.board[self.board_size//2-1,self.board_size//2-1] = self.whtplayer.mark
+        self.board[self.board_size//2,self.board_size//2] = self.whtplayer.mark
+        self.board[self.board_size//2-1,self.board_size//2] = self.blkplayer.mark
+        self.board[self.board_size//2,self.board_size//2-1] = self.blkplayer.mark
+        self.current_player_mark = self.blkplayer.mark
+        self.current_score= 0
+        self.id = 0
+
+    def get_human_move(self):
+        while True:
+            move = input("ENTER YOUR MOVE (eg: x,y ): ")
+            try:
+                x,y = int(move.split(',')[0]), int(move.split(',')[1])
+                if self.is_legal_move((x,y)):
+                    print("correct move")
+                    return (x,y)
+                else:
+                    print("illegal move")
+            except ValueError:
+                print('Incorrect move')
+
+    def max_action_count(self) -> int:
+        return self.board_size**2
+
+    def state_description(self) -> np.ndarray:
+        return tf.keras.utils.to_categorical(self.board, 3).flatten()
+
+    def state_dim(self) -> int:
+        return 192
+
+    def is_game_over(self) -> bool:
+        curr_player_can_play = self.has_legal_move()
+        self.switch_player()
+        adversary_can_play = self.has_legal_move()
+        self.switch_player()
+
+        if not curr_player_can_play or not adversary_can_play :
+            return True
+        else :
+            return False
+
+    def get_legal_move_id(self,move:tuple):
+        for i in range(self.board_size**2):
+            if i//self.board_size == move[0] and i%self.board_size == move[1]:
+                return i
+        return None
     
+    def get_agent_move(self,move_id:int):
+        i = move_id // self.board_size
+        j = move_id % self.board_size
+
+        return (i,j)
+
+    def display_board(self):
+        print(self.board)
+
+    def act_with_action_id(self, action_id: int):
+
+        #Agent plays
+        assert(not self.is_game_over())
+        i = action_id // self.board_size
+        j = action_id % self.board_size
+        assert (self.is_legal_move((i, j)))
+        self.apply_move((i,j))
+        self.id += 3 ** action_id * 1
+
+        self.current_score = 0
+        
+        if self.is_game_over():
+            if self.blkplayer.score <= self.whtplayer.score:
+                self.current_score = -1
+            else:
+                self.current_score = 1
+            return
+
+        #random_player plays
+        assert(not self.is_game_over())
+        move = self.get_random_move()
+        assert(self.is_legal_move(move))
+        self.apply_move(move)
+        move_id = self.get_legal_move_id(move)
+
+        self.id += 3 ** move_id * 1
+
+        if self.is_game_over():
+            if self.blkplayer.score <= self.whtplayer.score:
+                self.current_score = -1
+            else:
+                self.current_score = 1
+            return
+    def state_id(self) -> int:
+        return self.id
+
+    def score(self) -> float:
+
+        return self.current_score
+            
+
+    def available_actions_ids(self) -> np.ndarray:
+
+        legal_moves = self.get_legal_moves()
+        lgl_moves_ids = []
+
+        for move in legal_moves:
+            lgl_moves_ids.append(self.get_legal_move_id(move))
+
+        return np.array(lgl_moves_ids)
+
+    def view(self):
+        self.display_board()
+        legal_moves = self.get_legal_moves()
+        print(legal_moves)
+        print(self.available_actions_ids())
+        print("BLACK PLAYER SCORE : ",self.blkplayer.score)
+        print("BLACK PLAYER SCORE : ",self.whtplayer.score)
+    
+    def clone(self) -> 'DeepSingleAgentEnv':
+        cloned_env = OthelloEnv()
+        cloned_env.board = np.copy(self.board)
+        cloned_env.id = self.id
+        cloned_env.current_player_mark = self.current_player_mark
+        cloned_env.current_score = self.current_score
+        cloned_env.whtplayer.score = self.whtplayer.score
+        cloned_env.blkplayer.score = self.blkplayer.score
+        return cloned_env
