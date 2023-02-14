@@ -6,7 +6,6 @@ import numpy.random
 import tensorflow as tf
 from tqdm import tqdm
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 class DeepSingleAgentEnv:
     def max_action_count(self) -> int:

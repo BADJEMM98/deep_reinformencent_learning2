@@ -12,7 +12,7 @@ from keras.models import Model
 from keras.layers import Input, Flatten, Dense, Activation
 from tensorflow.keras.optimizers import Adam
 
-from env.cant_stop_multiplayers import CantStopMultiplayer
+from env.cant_stop_multiplayers import CantStopEnv
 
 episodes: int = 10_000
 epsilon: float = 0.2
@@ -21,7 +21,7 @@ n_players = 4
 class DQNAgent():
     def __init__(
             self,
-            env: CantStopMultiplayer,
+            env: CantStopEnv,
             gamma: float = 0.99,
             alpha: float = 1e-3,
 
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     workspace = os.path.dirname(curr_dir)
 
     checkpoint_name = f"weights/dnq_2.h5"
-    q_model, q_target_model, scores, steps = dqn(env=CantStopMultiplayer(n))
+    q_model, q_target_model, scores, steps = dqn(env=CantStopEnv(n))
     print(q_model.get_weights())
     q_model.save(os.path.join('models', checkpoint_name))
     q_target_model.save(os.path.join('models', "CantStop", "target_model.h5"))
