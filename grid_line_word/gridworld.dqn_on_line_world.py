@@ -8,9 +8,9 @@ import tensorflow as tf
 from tqdm import tqdm
 
 
-from env.deep_single_agent_env import DeepSingleAgentEnv
-from env.env_grid_world import GridWorld
-from env.env_line_world import LineWorld
+from Cantstop.deep_single_agent_env import DeepSingleAgentEnv
+from Cantstop.env_grid_world import GridWorld
+from Cantstop.env_line_world import LineWorld
 
 
 def dqn(env: DeepSingleAgentEnv, max_iter_count: int = 10000,

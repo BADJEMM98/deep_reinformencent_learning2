@@ -1,5 +1,5 @@
-from deep_single_agent_env import DeepSingleAgentEnv
-from env.cant_stop_multiplayers import CantStopMultiplayer
+from agents.Deep_Single_Agent_Env import DeepSingleAgentEnv
+from Cantstop.cant_stop_multiplayers import CantStopEnv
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
@@ -9,8 +9,6 @@ import random
 import os
 
 episodes: int = 10_000
-
-
 class REINFORCEAgent():
     def __init__(
             self,
@@ -97,7 +95,7 @@ def reinforce(env: DeepSingleAgentEnv, episodes=episodes):
 
         # Get action from Q table
         pi_s = agent.pi(np.array(curr_state).reshape(-1, env.state_dim()))[0].numpy()
-        # print("pi_s ",pi_s)
+        #print("pi_s ",pi_s)
         allowed_pi_s = pi_s[actions]
         # print("allowed_pis ", allowed_pi_s)
         sum_allowed_pi_s = np.sum(allowed_pi_s)
@@ -105,10 +103,11 @@ def reinforce(env: DeepSingleAgentEnv, episodes=episodes):
             probs = np.ones((len(actions),)) * 1.0 / (len(actions))
         else:
             probs = allowed_pi_s / sum_allowed_pi_s
-
+        #print(actions)
         action = np.random.choice(actions, p=probs)
 
         old_score = env.score()
+        print(old_score)
         env.act_with_action_id(action)
         new_score = env.score()
         reward = new_score - old_score
@@ -121,17 +120,18 @@ def reinforce(env: DeepSingleAgentEnv, episodes=episodes):
 
 
 if __name__ == "__main__":
+    n=4
     curr_dir = os.path.dirname(os.path.realpath('__file__'))
     workspace = os.path.dirname(curr_dir)
 
     model_name = "reinforce"
-    pi_model, scores, steps = reinforce(env=OthelloEnv())
+    pi_model, scores, steps = reinforce(env=CantStopEnv(n))
     print(pi_model.get_weights())
-    pi_model.save(os.path.join('models', "Othello", f"{model_name}.h5"))
+    pi_model.save(os.path.join('models', "canStop", f"{model_name}.h5"))
     plt.plot(scores)
     plt.show()
-    # plt.savefig(os.path.join('models',"Othello",f"{model_name}_scores.png"))
+
     plt.plot(steps)
     plt.show()
-    # plt.savefig(os.path.join('models',"Othello",f"{model_name}_steps.png"))
-
+    print('Score moyen :', sum(scores))
+    print('Longueur moyenne :', sum(steps))

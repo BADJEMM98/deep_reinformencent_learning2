@@ -7,9 +7,9 @@ import os
 import sys
 #sys.path.append('/')
 
-from env.deep_single_agent_env import DeepSingleAgentEnv
-from env.env_grid_world import GridWorld
-from env.env_line_world import LineWorld
+from Cantstop.deep_single_agent_env import DeepSingleAgentEnv
+from Cantstop.env_grid_world import GridWorld
+from Cantstop.env_line_world import LineWorld
 
 def REINFORCE(env: DeepSingleAgentEnv, max_iter_count: int = 10000,
                                  gamma: float = 0.99,
