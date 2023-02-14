@@ -52,3 +52,14 @@ les résultats présentés.
 Les é tudiants devront pré senter ces ré sultats dans un rapport ainsi qu'une pré sentation. Dans ces
 derniers, les étudiants devront faire valoir leur méthodologie de choix d'hyperparamètres, et proposer leur
 interprétation des résultats obtenus
+# Board Games with Reinforcement Learning
+
+## Structure of git
+Notebooks for training are in base folder.
+Sub folders are:  
+- envs: implementations of different board games as OpenAI Gym environments.
+- agents: wrappers around KerasRL agents that allow for multiplayer games.
+
+
+## Implemented Games:
+- Can't Stop (DQN Agents)
