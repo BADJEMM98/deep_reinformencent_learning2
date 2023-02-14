@@ -4,12 +4,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from gym.utils import seeding
 import logging
-
+import tensorflow as tf
+from agents.Deep_Single_Agent_Env import DeepSingleAgentEnv
 logger = logging.getLogger('Can\'t Stop')
 logger.setLevel(logging.INFO)
 
 
-class CantStopMultiplayer(gym.Env):
+class CantStopEnv(DeepSingleAgentEnv):
     """
     Can't Stop is a two phased multiplayer game.
     Each turn per player comprises of:
@@ -17,7 +18,7 @@ class CantStopMultiplayer(gym.Env):
     Phase 1: player chooses a dice pair.
 
 
-    Actions on each turn is:
+    Actions on each turn is: deux action possible
     - Choose to stop or continue (if phase 0)
     - Choose which die pair (if phase 1)
 
@@ -38,6 +39,7 @@ class CantStopMultiplayer(gym.Env):
         for i in range(2, 13):
             self.limits[i] = 12 - 2 * abs(7 - i)
         self.reset()
+        self.done = False
         self.action_space = spaces.Discrete(8)
         self.observation_space = spaces.Discrete(10+4*11)
         self.rewards = {
@@ -105,7 +107,7 @@ class CantStopMultiplayer(gym.Env):
                 res.append(self.board[i][p])
         return [self.current_player, np.array(res)]
 
-    def step(self, action):
+    def step(self, action):   #act_with_action_id
         """
         Accepts an action and returns (observation, reward, done, info).
         Args:
@@ -114,7 +116,6 @@ class CantStopMultiplayer(gym.Env):
                              1: continue
                              2-7: choice of die. If both dice in pair are poss,
                              both will be chosen.
-
         Returns:
             observation (object): board, current_choices
             reward (float) : amount of reward returned after previous action
@@ -122,7 +123,8 @@ class CantStopMultiplayer(gym.Env):
             info (dict): auxiliary diagnostic information
         """
         assert self.action_space.contains(action)
-        done = False
+        #assert not self.is_game_over()
+        self.done = False
         reward = 0
         ###########
         # phase 0 #
@@ -151,17 +153,18 @@ class CantStopMultiplayer(gym.Env):
                         reward += self.rewards['0_complete_col']
                         # block off this number
                         self.blocked_states.append(b)
+
                 # if player won
                 if self.n_complete_columns[self.current_player] >= 3:
                     # >= in case complete 3rd and 4th at same time
                     reward += self.rewards['0_complete_game']
-                    done = True
+                    self.done = True
                 self.current_choices = []
                 self.phase = 1
                 self.roll_dice()  # update dice values
                 self.current_player = \
                     (self.current_player + 1) % self.n_players
-                return self.state, reward, done, {}
+                return self.state, reward, self.done, {}
 
             # player chose to continue
             if action == 1:
@@ -182,7 +185,7 @@ class CantStopMultiplayer(gym.Env):
                     self.roll_dice()
                     self.current_player = \
                         (self.current_player + 1) % self.n_players
-                return self.state, reward, done, {}
+                return self.state, reward, self.done, {}
 
             # player didn't choose 0 or 1 - punishment
             # end game, so don't get stuck here
@@ -211,18 +214,17 @@ class CantStopMultiplayer(gym.Env):
             # reset phase
             self.phase = 0
         # if nothing in chosen_rolls, wrong choice, so don't change anything
-        return self.state, reward, done, {}
+        return self.state, reward, self.done, {}
 
     def choose_roll(self, action):
         # 2, 3: roll 1
         # 4, 5: roll 2
         # 6, 7: roll 3
-        r = self.roll[action - 2]
+        r = self.roll[action-2]
 
         if not self.check_feasible(r) or r == 0:
             # r is not feasible
-            return []
-
+           return []
         # r is feasible, check if other die is feasible
         if action % 2 == 0:
             r2 = self.roll[action - 1]
@@ -284,6 +286,174 @@ class CantStopMultiplayer(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
+    def is_game_over(self)-> bool:
+        return self.done
+
+    def score(self):
+        if self.is_game_over():
+
+            if self.rewards['0_stopping'](len(self.current_choices)):
+                return self.rewards['0_stopping'](len(self.current_choices))
+            else:
+                self.done=True
+                return self.rewards['0_complete_game']
+        else:
+
+            return self.rewards['wrong_phase']
+
+    def max_action_count(self) -> int:
+        return 8
+    def state_description(self) -> np.ndarray:
+        x, narray = self.state
+        return tf.keras.utils.to_categorical(narray, 14).flatten()
+
+    def state_dim(self):
+        return 756
+
+    def available_actions_ids(self):
+        if self.phase == 1:
+            return [i + 2 for i in range(self.max_action_count() - 2) if self.choose_roll(i+2) != []]
+        elif self.phase == 0:
+            return [i for i in range(2)]
+
+    def act_with_action_id(self, action_id: int):
+        assert (not self.is_game_over())
+
+        done = False
+        reward = 0
+        ###########
+        # phase 0 #
+        ###########
+        # choose to stop or continue
+        if self.phase == 0:
+            # player chose to stop
+            if action_id == 0:
+                # reward = self.rewards['0_stopping'](len(self.current_choices))
+
+                # update board
+                for c in self.current_choices:
+                    self.board[0][c][self.current_player] += 1
+                # cap at max and check if complete
+                for b in self.board[0]:
+                    self.board[0][b] = np.minimum(self.board[0][b], self.limits[b])
+
+                    if (self.board[0][b][self.current_player] == self.limits[b]
+                            and b not in self.blocked_states):
+                        # add one complete column
+                        # in multiplayer, dict of each player's
+                        self.debug_log("Player {} completes column {}"
+                                       .format(self.current_player, b))
+                        self.n_complete_columns[self.current_player] += 1
+                        # reward += self.rewards['0_complete_col']
+                        # block off this number
+                        self.blocked_states.append(b)
+
+                # if player won
+                if self.n_complete_columns[self.current_player] >= 3:
+                    # >= in case complete 3rd and 4th at same time
+                    reward += self.rewards['0_complete_game']
+                    done = True
+                    self.game_over = True
+                    self.current_score += reward
+
+                self.current_choices = []
+                self.phase = 1
+                if self.game_over: return
+
+                assert (not self.is_game_over())
+
+                # print(f"end game player {self.current_player}")
+                # Next random player(s)
+                self.roll_dice()  # update dice values
+                feasible = (sum(self.roll) != 0)
+                self.current_player = \
+                    (self.current_player + 1) % self.n_players
+                while self.current_player != 0 or not feasible:
+                    # print(f"start {self.current_player} {feasible} : {self.roll}")
+                    if self.phase == 1 and not feasible:
+                        self.roll_dice()  # update dice values
+                        if not feasible:
+                            self.current_player = \
+                                (self.current_player + 1) % self.n_players
+                        feasible = (sum(self.roll) != 0)
+                    if self.current_player != 0 and feasible:
+                        # print(f"before {self.current_player} : {self.available_actions_ids()} : {self.roll}")
+                        test_action = np.random.choice(self.available_actions_ids())
+                        self.step(test_action)
+                        # if self.current_player == 0:
+                        # print(f"after {self.current_player} play {test_action} : {self.roll} : {feasible}")
+                        feasible = (sum(self.roll) != 0)
+                    if self.n_complete_columns[self.current_player] >= 3:
+                        # >= in case complete 3rd and 4th at same time
+                        reward -= self.rewards['0_complete_game']
+                        done = True
+                        self.game_over = True
+                        self.current_score += reward
+                        return
+
+                return self.state, reward, done, {}
+
+            # player chose to continue
+            if action_id == 1:
+                self.phase = 1
+                self.roll_dice()  # update dice values
+                # if no feasible choice, reset board and all advances lost
+                feasible = (sum(self.roll) != 0)
+                # reward = self.rewards['0_cont_feas']
+                if self.unique_current == 3:
+                    for d in self.roll:
+                        if d not in self.current_choices:
+                            feasible = False
+                if not feasible:
+                    # self.current_score += self.rewards['0_cont_feas']
+                    self.debug_log("No feasible choice - all advances lost!")
+                    self.current_choices = []
+                    # reward = self.rewards['0_cont_no_feas']
+
+                    # print(f"end game player {self.current_player}")
+                    # Next random player(s)
+                    self.roll_dice()  # update dice values
+                    feasible = (sum(self.roll) != 0)
+                    self.current_player = \
+                        (self.current_player + 1) % self.n_players
+                    while self.current_player != 0 or not feasible:
+                        # print(f"start {self.current_player} {feasible} : {self.roll}")
+                        if self.phase == 1 and not feasible:
+                            self.roll_dice()  # update dice values
+                            if not feasible:
+                                self.current_player = \
+                                    (self.current_player + 1) % self.n_players
+                            feasible = (sum(self.roll) != 0)
+                        if self.current_player != 0 and feasible:
+                            # print(f"before {self.current_player} : {self.available_actions_ids()} : {self.roll}")
+                            test_action = np.random.choice(self.available_actions_ids())
+                            self.step(test_action)
+                            # if self.current_player == 0:
+                            # print(f"after {self.current_player} play {test_action} : {self.roll} : {feasible}")
+                            feasible = (sum(self.roll) != 0)
+                        if self.n_complete_columns[self.current_player] >= 3:
+                            # >= in case complete 3rd and 4th at same time
+                            reward -= self.rewards['0_complete_game']
+                            done = True
+                            self.game_over = True
+                            self.current_score += reward
+                            return
+                return self.state, reward, done, {}
+
+                ###########
+                # phase 1 #
+                ###########
+                # player chooses roll
+                chosen_rolls = self.choose_roll(action_id)
+
+                for c in chosen_rolls:
+                    # mini reward for each possible choice
+                    reward += self.rewards['1_choose_roll']
+                    self.current_choices.append(c)
+                    # reset phase
+                    self.phase = 0
+                # if nothing in chosen_rolls, wrong choice, so don't change anything
+                return self.state, reward, done, {}
 
 class PlotsViewer():
     def __init__(self, limits, n_players):
