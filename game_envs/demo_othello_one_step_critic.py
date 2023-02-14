@@ -7,7 +7,7 @@ import numpy as np
 
 def run_ct_n_games_and_return_mean_score(gamescount: int) -> float:
     env = OthelloEnv()
-    pi = keras.models.load_model(os.path.join("models", "Othello","reinforce_with_baseline.h5"))
+    pi = keras.models.load_model(os.path.join("Othello",'models',"ppo_one_step_sctor_critic.h5"))
     total = 0.0
     wins = 0
     losses = 0
@@ -35,8 +35,15 @@ def run_ct_n_games_and_return_mean_score(gamescount: int) -> float:
             else:
                 probs = allowed_pi_s / sum_allowed_pi_s
 
-            chosen_a = np.random.choice(aa, p=probs)
-            env.act_with_action_id(chosen_a)
+            action_id = np.random.choice(aa, p=probs)
+
+            assert(not env.is_game_over())
+            i = action_id // env.board_size
+            j = action_id % env.board_size
+            assert (env.is_legal_move((i, j)))
+            env.apply_move((i,j))
+
+            
 
         if env.score() > 0:
             wins += 1

@@ -7,7 +7,7 @@ import numpy as np
 
 def run_ct_n_games_and_return_mean_score(gamescount: int) -> float:
     env = OthelloEnv()
-    pi = keras.models.load_model(os.path.join("models", "Othello","reinforce_with_baseline.h5"))
+    pi = keras.models.load_model(os.path.join("models", "Othello","reinforce.h5"))
     total = 0.0
     wins = 0
     losses = 0
@@ -23,10 +23,8 @@ def run_ct_n_games_and_return_mean_score(gamescount: int) -> float:
         while not env.is_game_over():
             steps += 1
             aa = env.available_actions_ids()
-            mask = np.zeros((env.max_action_count(),))
-            mask[aa] = 1.0
             s = env.state_description()
-            pi_s = pi([np.array([s]), np.array([mask])])[0].numpy()
+            pi_s = pi([np.array([s])])[0].numpy()
 
             allowed_pi_s = pi_s[aa]
             sum_allowed_pi_s = np.sum(allowed_pi_s)
@@ -51,14 +49,12 @@ def run_ct_n_games_and_return_mean_score(gamescount: int) -> float:
         if i == 10000:
             mean_scores.append(total/i)
             mean_steps.append(sum_steps/i)
-        # if i%100000 == 0:
-        #     mean_scores.append(total/100000)
-        #     mean_steps.append(sum_steps/100000)
 
 
-    print(f"Reinforce With baseline - wins : {wins}, losses : {losses}")
-    print(f"Reinforce With baseline - mean_scores : {mean_scores}")
-    print(f"Reinforce With baseline - mean_steps : {mean_steps}")
+
+    print(f"Reinforce - wins : {wins}, losses : {losses}")
+    print(f"Reinforce  - mean_scores : {mean_scores}")
+    print(f"Reinforce  - mean_steps : {mean_steps}")
     return mean_scores, mean_steps
 
 if __name__ == '__main__':

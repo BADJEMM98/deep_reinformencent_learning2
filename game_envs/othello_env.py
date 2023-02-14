@@ -18,6 +18,8 @@ class OthelloEnv(DeepSingleAgentEnv):
                                 (0, -1),           (0, +1),
                                 (+1, -1), (+1, 0), (+1, +1)]
         self.current_player_mark = self.blkplayer.mark
+        self.current_score = 0
+        self.id = 0
 
     def switch_player(self):
         if self.whtplayer.mark == self.current_player_mark:
@@ -168,6 +170,7 @@ class OthelloEnv(DeepSingleAgentEnv):
         self.board[self.board_size//2,self.board_size//2-1] = self.blkplayer.mark
         self.current_player_mark = self.blkplayer.mark
         self.current_score= 0
+        self.id = 0
 
     def get_human_move(self):
         while True:
@@ -207,7 +210,15 @@ class OthelloEnv(DeepSingleAgentEnv):
             if i//self.board_size == move[0] and i%self.board_size == move[1]:
                 return i
         return None
-        
+    
+    def get_agent_move(self,move_id:int):
+        i = move_id // self.board_size
+        j = move_id % self.board_size
+
+        return (i,j)
+
+    def display_board(self):
+        print(self.board)
 
     def act_with_action_id(self, action_id: int):
 
@@ -217,12 +228,15 @@ class OthelloEnv(DeepSingleAgentEnv):
         j = action_id % self.board_size
         assert (self.is_legal_move((i, j)))
         self.apply_move((i,j))
+        self.id += 3 ** action_id * 1
 
+        self.current_score = 0
+        
         if self.is_game_over():
             if self.blkplayer.score <= self.whtplayer.score:
-                self.current_score = -1.0
+                self.current_score = -1
             else:
-                self.current_score = 1.0
+                self.current_score = 1
             return
 
         #random_player plays
@@ -230,23 +244,22 @@ class OthelloEnv(DeepSingleAgentEnv):
         move = self.get_random_move()
         assert(self.is_legal_move(move))
         self.apply_move(move)
+        move_id = self.get_legal_move_id(move)
+
+        self.id += 3 ** move_id * 1
 
         if self.is_game_over():
             if self.blkplayer.score <= self.whtplayer.score:
-                self.current_score = -1.0
+                self.current_score = -1
             else:
-                self.current_score = 1.0
+                self.current_score = 1
             return
-
+    def state_id(self) -> int:
+        return self.id
 
     def score(self) -> float:
-        if self.is_game_over():
-            if self.blkplayer.score <= self.whtplayer.score:
-                return -10.0
-            else:
-                return 1.0
-        else:
-            return self.blkplayer.score
+
+        return self.current_score
             
 
     def available_actions_ids(self) -> np.ndarray:
@@ -266,3 +279,13 @@ class OthelloEnv(DeepSingleAgentEnv):
         print(self.available_actions_ids())
         print("BLACK PLAYER SCORE : ",self.blkplayer.score)
         print("BLACK PLAYER SCORE : ",self.whtplayer.score)
+    
+    def clone(self) -> 'DeepSingleAgentEnv':
+        cloned_env = OthelloEnv()
+        cloned_env.board = np.copy(self.board)
+        cloned_env.id = self.id
+        cloned_env.current_player_mark = self.current_player_mark
+        cloned_env.current_score = self.current_score
+        cloned_env.whtplayer.score = self.whtplayer.score
+        cloned_env.blkplayer.score = self.blkplayer.score
+        return cloned_env

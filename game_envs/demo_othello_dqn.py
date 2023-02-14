@@ -7,7 +7,7 @@ import numpy as np
 
 def run_ct_n_games_and_return_mean_score(gamescount: int) -> float:
     env = OthelloEnv()
-    pi = keras.models.load_model(os.path.join("models", "Othello","reinforce_with_baseline.h5"))
+    q = keras.models.load_model(os.path.join("models", "Othello","dqn.h5"))
     total = 0.0
     wins = 0
     losses = 0
@@ -26,16 +26,10 @@ def run_ct_n_games_and_return_mean_score(gamescount: int) -> float:
             mask = np.zeros((env.max_action_count(),))
             mask[aa] = 1.0
             s = env.state_description()
-            pi_s = pi([np.array([s]), np.array([mask])])[0].numpy()
 
-            allowed_pi_s = pi_s[aa]
-            sum_allowed_pi_s = np.sum(allowed_pi_s)
-            if sum_allowed_pi_s == 0.0:
-                probs = np.ones((len(aa),)) * 1.0 / (len(aa))
-            else:
-                probs = allowed_pi_s / sum_allowed_pi_s
+            q_pred = q(np.array([s]))[0]
+            chosen_a = aa[np.argmax(q_pred.numpy()[aa])]
 
-            chosen_a = np.random.choice(aa, p=probs)
             env.act_with_action_id(chosen_a)
 
         if env.score() > 0:
@@ -46,19 +40,19 @@ def run_ct_n_games_and_return_mean_score(gamescount: int) -> float:
         total += env.blkplayer.score
         sum_steps += steps
         if i == 1000:
-            mean_scores.append(total/i)
-            mean_steps.append(sum_steps/i)
+            mean_scores.append(total/1000)
+            mean_steps.append(sum_steps/1000)
         if i == 10000:
-            mean_scores.append(total/i)
-            mean_steps.append(sum_steps/i)
+            mean_scores.append(total/10000)
+            mean_steps.append(sum_steps/10000)
         # if i%100000 == 0:
         #     mean_scores.append(total/100000)
         #     mean_steps.append(sum_steps/100000)
 
 
-    print(f"Reinforce With baseline - wins : {wins}, losses : {losses}")
-    print(f"Reinforce With baseline - mean_scores : {mean_scores}")
-    print(f"Reinforce With baseline - mean_steps : {mean_steps}")
+    print(f"DQN - wins : {wins}, losses : {losses}")
+    print(f"DQN - mean_scores : {mean_scores}")
+    print(f"DQN - mean_steps : {mean_steps}")
     return mean_scores, mean_steps
 
 if __name__ == '__main__':

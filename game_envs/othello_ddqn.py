@@ -1,22 +1,21 @@
+from collections import deque
+import random
 from deep_single_agent_env import DeepSingleAgentEnv
 from othello_env import OthelloEnv
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from collections import deque
-import random
-import os
 
-episodes: int = 10_000
+episodes: int = 1000
 epsilon: float = 0.2
 
-class DQNAgent():
+class DDQNAgent():
     def __init__(
         self,
         env:DeepSingleAgentEnv,
         gamma: float = 0.99,
-        alpha: float = 0.1,
+        alpha: float = 0.01,
         
     ):
         self.min_replay_memory_size = 128
@@ -35,7 +34,7 @@ class DQNAgent():
         model = tf.keras.models.Sequential()
         model.add(tf.keras.layers.Input((self.env.state_dim(),)))
         model.add(tf.keras.layers.Dense(self.env.max_action_count(),
-                                    activation=tf.keras.activations.linear,
+                                    activation=tf.keras.activations.relu,
                                     use_bias=True
                                     ))
         model.compile(
@@ -89,9 +88,9 @@ class DQNAgent():
         return self.model.predict(state,verbose=0)
 
 
-def dqn(env: DeepSingleAgentEnv,episodes = episodes,epsilon=epsilon):
+def ddqn(env: DeepSingleAgentEnv,episodes = episodes,epsilon=epsilon):
 
-    agent = DQNAgent(env=env)
+    agent = DDQNAgent(env=env)
     ema_score = 0.0
     ema_nb_steps = 0.0
     first_episode = True
@@ -150,17 +149,19 @@ def dqn(env: DeepSingleAgentEnv,episodes = episodes,epsilon=epsilon):
 
 if __name__ == "__main__":
 
-    curr_dir = os.path.dirname(os.path.realpath('__file__'))
-    workspace = os.path.dirname(curr_dir)
+    # curr_dir = os.path.dirname(os.path.realpath('__file__'))
+    # workspace = os.path.dirname(curr_dir)
 
-    checkpoint_name = f"Othello/dnq_2.h5"
-    q_model, q_target_model, scores, steps = dqn(env=OthelloEnv())
+    # checkpoint_name = f"Othello/dnq_2.h5"
+    q_model, q_target_model, scores, steps = ddqn(env=OthelloEnv())
     print(q_model.get_weights())
-    q_model.save(os.path.join('models',checkpoint_name))
-    q_target_model.save(os.path.join('models',"Othello","target_model.h5"))
+    # q_model.save(os.path.join('models',checkpoint_name))
+    # q_target_model.save(os.path.join('models',"Othello","target_model.h5"))
     plt.plot(scores)
-    plt.savefig(os.path.join('models',"Othello","dqn_scores.png"))
+    plt.show()
+    # plt.savefig(os.path.join('models',"Othello","dqn_scores.png"))
     plt.plot(steps)
-    plt.savefig(os.path.join('models',"Othello","dqn_steps.png"))
+    plt.show()
+    # plt.savefig(os.path.join('models',"Othello","dqn_steps.png"))
 
             
